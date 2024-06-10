@@ -1,0 +1,9 @@
+services:
+  pokedex-api:
+    container_name: pokedex_api
+    image: rust:alpine3.20
+    ports: 
+      - 3030:3030
+    volumes:
+      - ./pokedex_api:/code
+    tty: true
