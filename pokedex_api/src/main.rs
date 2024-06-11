@@ -1,14 +1,35 @@
+use reqwest::Error;
 use warp::Filter;
 use rustemon::Follow;
 
 // use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json, Value};
 
 
-async fn get_pokemon(param: String) -> Result<impl warp::Reply, warp::Rejection> {
+async fn get_pokemon(pokemon_name_to_search: String) -> Result<impl warp::Reply, warp::Rejection> {
+    let pokemon = get_pokemon_from_api(pokemon_name_to_search).await.unwrap();
+    Ok(warp::reply::json(&pokemon))
+}
 
+async fn get_translated_pokemon(pokemon_name_to_search: String) -> Result<impl warp::Reply, warp::Rejection> {
+
+    let pokemon = get_pokemon_from_api(pokemon_name_to_search).await.unwrap();
+
+    let pokemon_habitat = pokemon["habitat"].as_str().unwrap();
+    let pokemon_is_legendary = pokemon["is_legendary"].as_bool().unwrap();
+
+    if pokemon_habitat == "cave" || pokemon_is_legendary {
+        // Translate the description to Yoda
+        Ok("Yoda")
+    } else {
+        // Translate the description to Shakespeare
+        Ok("Shakespeare")
+    }
+}
+
+async fn get_pokemon_from_api(pokemon_name_to_search: String) -> Result<Value, Error> {
     let rustemon_client = rustemon::client::RustemonClient::default();
-    let pokemon = rustemon::pokemon::pokemon::get_by_name(&param, &rustemon_client).await;
+    let pokemon = rustemon::pokemon::pokemon::get_by_name(&pokemon_name_to_search, &rustemon_client).await;
 
     let pokemon = pokemon.unwrap();
     let pokemon_name = &pokemon.name;
@@ -29,8 +50,9 @@ async fn get_pokemon(param: String) -> Result<impl warp::Reply, warp::Rejection>
         "is_legendary": pokemon_is_legendary
     });
 
-    Ok(res.to_string())
+    Ok(res)
 }
+
 
 #[tokio::main]
 async fn main() {
@@ -41,7 +63,18 @@ async fn main() {
         .and(warp::path::end())
         .and_then(get_pokemon);
 
-    warp::serve(pokemon)
+    let translated_pokemon = warp::get()
+        .and(warp::path("translated"))
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and_then(get_translated_pokemon);
+
+    let routes = warp::get().and(
+        pokemon
+        .or(translated_pokemon)
+    );
+
+    warp::serve(routes)
         // Set the IP address for docker to 0.0.0.0
         .run(([0, 0, 0, 0], 3030))
         .await;
