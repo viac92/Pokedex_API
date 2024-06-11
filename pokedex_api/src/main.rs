@@ -1,33 +1,44 @@
 use reqwest::Error;
 use warp::Filter;
-use rustemon::Follow;
+use rustemon::{model::pokemon, Follow};
 
 // use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 
 async fn get_pokemon(pokemon_name_to_search: String) -> Result<impl warp::Reply, warp::Rejection> {
-    let pokemon = get_pokemon_from_api(pokemon_name_to_search).await.unwrap();
+    let pokemon = fetch_pokemon_from_api(pokemon_name_to_search).await.unwrap();
     Ok(warp::reply::json(&pokemon))
 }
 
 async fn get_translated_pokemon(pokemon_name_to_search: String) -> Result<impl warp::Reply, warp::Rejection> {
-
-    let pokemon = get_pokemon_from_api(pokemon_name_to_search).await.unwrap();
+    let pokemon = fetch_pokemon_from_api(pokemon_name_to_search).await.unwrap();
 
     let pokemon_habitat = pokemon["habitat"].as_str().unwrap();
     let pokemon_is_legendary = pokemon["is_legendary"].as_bool().unwrap();
+    
+    let pokemon_description = pokemon["description"].as_str().unwrap(); 
+    let pokemon_description = pokemon_description.replace("\n", " ");
+    let pokemon_description = pokemon_description.replace("\u{c}", " ");
 
     if pokemon_habitat == "cave" || pokemon_is_legendary {
         // Translate the description to Yoda
-        Ok("Yoda")
+        println!("Pokemon description {:?}", pokemon_description);
+
+        let translated_pokemon_description = fetch_yoda_translation_from_api(pokemon_description.to_string()).await.unwrap();
+
+        Ok(translated_pokemon_description)
     } else {
         // Translate the description to Shakespeare
-        Ok("Shakespeare")
+        println!("Pokemon description {:?}", pokemon_description);
+
+        let translated_pokemon_description = fetch_shakespeare_translation_from_api(pokemon_description.to_string()).await.unwrap();
+
+        Ok(translated_pokemon_description)
     }
 }
 
-async fn get_pokemon_from_api(pokemon_name_to_search: String) -> Result<Value, Error> {
+async fn fetch_pokemon_from_api(pokemon_name_to_search: String) -> Result<Value, Error> {
     let rustemon_client = rustemon::client::RustemonClient::default();
     let pokemon = rustemon::pokemon::pokemon::get_by_name(&pokemon_name_to_search, &rustemon_client).await;
 
@@ -53,10 +64,38 @@ async fn get_pokemon_from_api(pokemon_name_to_search: String) -> Result<Value, E
     Ok(res)
 }
 
+async fn fetch_yoda_translation_from_api(pokemon_description: String) -> Result<String, Error> {
+    let client = reqwest::Client::new();
+    let res = client.post("https://api.funtranslations.com/translate/yoda")
+        .body(format!("{{\"text\": \"{}\"}}", pokemon_description))
+        .send()
+        .await?;
+
+    println!("{:?}", res);
+
+    let data: serde_json::Value = res.json().await.unwrap();
+    let translated_text = data["contents"]["translated"].to_string();
+    
+    Ok(translated_text)
+}
+
+async fn fetch_shakespeare_translation_from_api(pokemon_description: String) -> Result<String, Error> {
+    let client = reqwest::Client::new();
+    let res = client.post("https://api.funtranslations.com/translate/shakespeare")
+        .body(format!("{{\"text\": \"{}\"}}", pokemon_description))
+        .send()
+        .await?;
+
+    println!("{:?}", res);
+
+    let data: serde_json::Value = res.json().await.unwrap();
+    let translated_text = data["contents"]["translated"].to_string();
+    
+    Ok(translated_text)
+}
 
 #[tokio::main]
 async fn main() {
-    // GET /hello/warp => 200 OK with body "Hello, warp!"
     let pokemon = warp::get()
         .and(warp::path("pokemon"))
         .and(warp::path::param::<String>())
