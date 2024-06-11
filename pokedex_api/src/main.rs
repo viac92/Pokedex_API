@@ -1,6 +1,6 @@
 use reqwest::Error;
 use warp::Filter;
-use rustemon::{model::pokemon, Follow};
+use rustemon::Follow;
 
 // use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
