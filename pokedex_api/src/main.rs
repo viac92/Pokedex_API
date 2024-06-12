@@ -14,11 +14,9 @@ async fn get_pokemon(pokemon_name_to_search: String) -> Result<impl warp::Reply,
 async fn get_translated_pokemon(pokemon_name_to_search: String) -> Result<impl warp::Reply, warp::Rejection> {
     let pokemon = fetch_pokemon_from_api(pokemon_name_to_search).await.unwrap();
 
-    let pokemon_habitat = pokemon["habitat"].as_str().unwrap();
-    let pokemon_is_legendary = pokemon["is_legendary"].as_bool().unwrap();
     let pokemon_description = pokemon["description"].as_str().unwrap(); 
 
-    if pokemon_habitat == "cave" || pokemon_is_legendary {
+    if pokemon["habitat"] == "cave" || pokemon["is_legendary"] == true {
         // Translate the description to Yoda
 
         let translated_pokemon_description = fetch_yoda_translation_from_api(pokemon_description.to_string()).await.unwrap();
@@ -28,8 +26,8 @@ async fn get_translated_pokemon(pokemon_name_to_search: String) -> Result<impl w
         let res = json!({
             "name": pokemon["name"],
             "description": translated_pokemon_description,
-            "habitat": pokemon_habitat,
-            "is_legendary": pokemon_is_legendary
+            "habitat": pokemon["habitat"],
+            "is_legendary": pokemon["is_legendary"]
         });
 
         Ok(warp::reply::json(&res))
@@ -43,8 +41,8 @@ async fn get_translated_pokemon(pokemon_name_to_search: String) -> Result<impl w
         let res = json!({
             "name": pokemon["name"],
             "description": translated_pokemon_description,
-            "habitat": pokemon_habitat,
-            "is_legendary": pokemon_is_legendary
+            "habitat": pokemon["habitat"],
+            "is_legendary": pokemon["is_legendary"]
         });
 
         Ok(warp::reply::json(&res))
