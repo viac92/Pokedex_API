@@ -1,7 +1,7 @@
 use reqwest::Error;
-use warp::Filter;
 use rustemon::{model::resource::FlavorText, Follow};
 use serde_json::{json, Value};
+use warp::Filter;
 
 async fn get_pokemon(pokemon_name_to_search: String) -> Result<impl warp::Reply, warp::Rejection> {
     let pokemon = fetch_pokemon_from_api(pokemon_name_to_search).await.unwrap();
@@ -10,33 +10,21 @@ async fn get_pokemon(pokemon_name_to_search: String) -> Result<impl warp::Reply,
 
 async fn get_translated_pokemon(pokemon_name_to_search: String) -> Result<impl warp::Reply, warp::Rejection> {
     let pokemon = fetch_pokemon_from_api(pokemon_name_to_search).await.unwrap();
-    let pokemon_description = pokemon["description"].as_str().unwrap();
 
-    if pokemon["habitat"] == "cave" || pokemon["is_legendary"] == true {
-        // Translate the description to Yoda
-        let translated_pokemon_description = fetch_yoda_translation_from_api(pokemon_description.to_string()).await.unwrap();
+    let translated_pokemon_description = get_translation(
+        pokemon["description"].to_string(), 
+        pokemon["habitat"].to_string(), 
+        pokemon["is_legendary"].as_bool().unwrap()
+    ).await;
 
-        let res = json!({
-            "name": pokemon["name"],
-            "description": translated_pokemon_description,
-            "habitat": pokemon["habitat"],
-            "is_legendary": pokemon["is_legendary"]
-        });
+    let res = json!({
+        "name": pokemon["name"],
+        "description": translated_pokemon_description,
+        "habitat": pokemon["habitat"],
+        "is_legendary": pokemon["is_legendary"]
+    });
 
-        Ok(warp::reply::json(&res))
-    } else {
-        // Translate the description to Shakespeare
-        let translated_pokemon_description = fetch_shakespeare_translation_from_api(pokemon_description.to_string()).await.unwrap();
-
-        let res = json!({
-            "name": pokemon["name"],
-            "description": translated_pokemon_description,
-            "habitat": pokemon["habitat"],
-            "is_legendary": pokemon["is_legendary"]
-        });
-
-        Ok(warp::reply::json(&res))
-    }
+    Ok(warp::reply::json(&res))
 }
 
 async fn fetch_pokemon_from_api(pokemon_name_to_search: String) -> Result<Value, Error> {
@@ -112,6 +100,14 @@ fn get_english_description(language_array: Vec<FlavorText>) -> String {
     english_translation
 }
 
+async fn get_translation(pokemon_description: String, pokemon_habitat: String, pokemon_is_legendary: bool) -> String {
+    if pokemon_habitat == "cave" || pokemon_is_legendary == true {
+        fetch_yoda_translation_from_api(pokemon_description).await.unwrap()
+    } else {
+        fetch_shakespeare_translation_from_api(pokemon_description).await.unwrap()
+    }
+}
+
 #[tokio::main]
 async fn main() {
     let pokemon = warp::get()
@@ -182,7 +178,7 @@ async fn test_fetch_yoda_translation_from_api_with_zubat_description() {
         "Forms colonies in perpetually dark places. Uses ultrasonic waves to identify and approach targets."
         .to_string()).await.unwrap();
 
-    assert_eq!(translation, "At which hour several of these pokémon gather, their electricity could build and cause lightning storms.");
+    assert_eq!(translation, "Forms colonies in perpetually dark places.Ultrasonic waves to identify and approach targets, uses.");
 }
 
 #[tokio::test]
