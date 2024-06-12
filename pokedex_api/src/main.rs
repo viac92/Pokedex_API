@@ -13,12 +13,10 @@ async fn get_pokemon(pokemon_name_to_search: String) -> Result<impl warp::Reply,
 
 async fn get_translated_pokemon(pokemon_name_to_search: String) -> Result<impl warp::Reply, warp::Rejection> {
     let pokemon = fetch_pokemon_from_api(pokemon_name_to_search).await.unwrap();
-
     let pokemon_description = pokemon["description"].as_str().unwrap(); 
 
     if pokemon["habitat"] == "cave" || pokemon["is_legendary"] == true {
         // Translate the description to Yoda
-
         let translated_pokemon_description = fetch_yoda_translation_from_api(pokemon_description.to_string()).await.unwrap();
         let translated_pokemon_description = translated_pokemon_description.replace("\"", "");
         let translated_pokemon_description = translated_pokemon_description.replace("  ", " ");
@@ -33,7 +31,6 @@ async fn get_translated_pokemon(pokemon_name_to_search: String) -> Result<impl w
         Ok(warp::reply::json(&res))
     } else {
         // Translate the description to Shakespeare
-
         let translated_pokemon_description = fetch_shakespeare_translation_from_api(pokemon_description.to_string()).await.unwrap();
         let translated_pokemon_description = translated_pokemon_description.replace("\"", "");
         let translated_pokemon_description = translated_pokemon_description.replace("  ", " ");
