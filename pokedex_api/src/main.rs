@@ -10,7 +10,7 @@ async fn get_pokemon(pokemon_name_to_search: String) -> Result<impl warp::Reply,
 
 async fn get_translated_pokemon(pokemon_name_to_search: String) -> Result<impl warp::Reply, warp::Rejection> {
     let pokemon = fetch_pokemon_from_api(pokemon_name_to_search).await.unwrap();
-    let pokemon_description = pokemon["description"].as_str().unwrap(); 
+    let pokemon_description = pokemon["description"].as_str().unwrap();
 
     if pokemon["habitat"] == "cave" || pokemon["is_legendary"] == true {
         // Translate the description to Yoda
@@ -168,7 +168,9 @@ async fn test_fetch_pokemon_from_api_with_cave_pokemon() {
 
 #[tokio::test]
 async fn test_fetch_yoda_translation_from_api_with_mewtwo_description() {
-    let translation = fetch_yoda_translation_from_api("It was created by a scientist after years of horrific gene splicing and DNA engineering experiments.".to_string()).await.unwrap();
+    let translation = fetch_yoda_translation_from_api(
+        "It was created by a scientist after years of horrific gene splicing and DNA engineering experiments."
+        .to_string()).await.unwrap();
 
     // The translation lowercase the DNA to dna.
     assert_eq!(translation, "Created by a scientist after years of horrific gene splicing and dna engineering experiments, it was.");
@@ -176,13 +178,19 @@ async fn test_fetch_yoda_translation_from_api_with_mewtwo_description() {
 
 #[tokio::test]
 async fn test_fetch_yoda_translation_from_api_with_zubat_description() {
-    let translation = fetch_yoda_translation_from_api("Forms colonies in perpetually dark places. Uses ultrasonic waves to identify and approach targets.".to_string()).await.unwrap();
+    let translation = fetch_yoda_translation_from_api(
+        "Forms colonies in perpetually dark places. Uses ultrasonic waves to identify and approach targets."
+        .to_string()).await.unwrap();
+
     assert_eq!(translation, "At which hour several of these pokémon gather, their electricity could build and cause lightning storms.");
 }
 
 #[tokio::test]
 async fn test_fetch_shakespeare_translation_from_api_with_pikachu_description() {
-    let translation = fetch_shakespeare_translation_from_api("When several of these POKéMON gather, their electricity could build and cause lightning storms.".to_string()).await.unwrap();
+    let translation = fetch_shakespeare_translation_from_api(
+        "When several of these POKéMON gather, their electricity could build and cause lightning storms."
+        .to_string()).await.unwrap();
+
     assert_eq!(translation, "At which hour several of these pokémon gather, their electricity couldst buildeth and cause lightning storms.");
 }
 
