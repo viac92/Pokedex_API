@@ -185,3 +185,31 @@ async fn test_fetch_shakespeare_translation_from_api_with_pikachu_description() 
     let translation = fetch_shakespeare_translation_from_api("When several of these POKéMON gather, their electricity could build and cause lightning storms.".to_string()).await.unwrap();
     assert_eq!(translation, "At which hour several of these pokémon gather, their electricity couldst buildeth and cause lightning storms.");
 }
+
+#[tokio::test]
+async fn test_get_english_description_with_flavor_text_entries() {
+    use rustemon::model::resource::NamedApiResource;
+    use rustemon::model::utility::Language;
+
+    let mut eng_language: NamedApiResource<Language> = rustemon::model::resource::NamedApiResource::default(); 
+    eng_language.name = "en".to_string();
+
+    let mut zh_language: NamedApiResource<Language> = rustemon::model::resource::NamedApiResource::default();
+    zh_language.name = "zh-Hant".to_string();
+
+    let flavor_text_entries = vec![
+        FlavorText {
+            flavor_text: "因為沒有眼珠所以看不見東西。會從口中發出超音波 來探測周圍的狀況".to_string(),
+            language: zh_language,
+            version: None
+        },
+        FlavorText {
+            flavor_text: "Forms colonies in perpetually dark places. Uses ultrasonic waves to identify and approach targets.".to_string(),
+            language: eng_language,
+            version: None
+        }
+    ];
+
+    let english_description = get_english_description(flavor_text_entries);
+    assert_eq!(english_description, "Forms colonies in perpetually dark places. Uses ultrasonic waves to identify and approach targets.");
+}
