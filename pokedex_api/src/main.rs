@@ -12,7 +12,7 @@ async fn get_translated_pokemon(pokemon_name_to_search: String) -> Result<impl w
     let pokemon = fetch_pokemon_from_api(pokemon_name_to_search).await.unwrap();
 
     let translated_pokemon_description = get_translation(
-        pokemon["description"].to_string(), 
+        pokemon["description"].as_str().unwrap().to_string(), 
         pokemon["habitat"].to_string(), 
         pokemon["is_legendary"].as_bool().unwrap()
     ).await;
@@ -57,6 +57,7 @@ async fn fetch_pokemon_from_api(pokemon_name_to_search: String) -> Result<Value,
 
 async fn fetch_yoda_translation_from_api(pokemon_description: String) -> Result<String, Error> {
     let client = reqwest::Client::new();
+
     let res = client.post("https://api.funtranslations.com/translate/yoda")
         .body(format!("{{\"text\": \"{}\"}}", pokemon_description))
         .send()
@@ -65,8 +66,7 @@ async fn fetch_yoda_translation_from_api(pokemon_description: String) -> Result<
     println!("{:?}", res);
 
     let data: serde_json::Value = res.json().await.unwrap();
-    let translated_text = data["contents"]["translated"].to_string();
-    let translated_text = translated_text.replace("\"", "");
+    let translated_text = data["contents"]["translated"].as_str().unwrap().to_string();
     let translated_text = translated_text.replace("  ", " ");
     
     Ok(translated_text)
@@ -74,6 +74,7 @@ async fn fetch_yoda_translation_from_api(pokemon_description: String) -> Result<
 
 async fn fetch_shakespeare_translation_from_api(pokemon_description: String) -> Result<String, Error> {
     let client = reqwest::Client::new();
+
     let res = client.post("https://api.funtranslations.com/translate/shakespeare")
         .body(format!("{{\"text\": \"{}\"}}", pokemon_description))
         .send()
@@ -82,8 +83,7 @@ async fn fetch_shakespeare_translation_from_api(pokemon_description: String) -> 
     println!("{:?}", res);
 
     let data: serde_json::Value = res.json().await.unwrap();
-    let translated_text = data["contents"]["translated"].to_string();
-    let translated_text = translated_text.replace("\"", "");
+    let translated_text = data["contents"]["translated"].as_str().unwrap().to_string();
     let translated_text = translated_text.replace("  ", " ");
 
     Ok(translated_text)
@@ -122,8 +122,8 @@ async fn main() {
         .and(warp::path::end())
         .and_then(get_translated_pokemon);
 
-    let routes = warp::get().and(
-        pokemon
+    let routes = warp::get()
+        .and(pokemon
         .or(translated_pokemon)
     );
 
@@ -195,8 +195,8 @@ async fn test_get_english_description_with_flavor_text_entries() {
     use rustemon::model::resource::NamedApiResource;
     use rustemon::model::utility::Language;
 
-    let mut eng_language: NamedApiResource<Language> = rustemon::model::resource::NamedApiResource::default(); 
-    eng_language.name = "en".to_string();
+    let mut en_language: NamedApiResource<Language> = rustemon::model::resource::NamedApiResource::default(); 
+    en_language.name = "en".to_string();
 
     let mut zh_language: NamedApiResource<Language> = rustemon::model::resource::NamedApiResource::default();
     zh_language.name = "zh-Hant".to_string();
@@ -209,7 +209,7 @@ async fn test_get_english_description_with_flavor_text_entries() {
         },
         FlavorText {
             flavor_text: "Forms colonies in perpetually dark places. Uses ultrasonic waves to identify and approach targets.".to_string(),
-            language: eng_language,
+            language: en_language,
             version: None
         }
     ];
@@ -249,4 +249,34 @@ async fn test_get_translation_with_common_pokemon() {
     ).await;
 
     assert_eq!(translation, "At which hour several of these pokémon gather, their electricity couldst buildeth and cause lightning storms.");
+}
+
+#[tokio::test]
+async fn test_get_pokemon() {
+    let f = warp::path("pokemon")
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and_then(get_pokemon);
+
+    let res = warp::test::request().path("/pokemon/pikachu").reply(&f).await;
+
+    assert_eq!(res.status(), 200);
+    assert_eq!(res.body(), 
+        "{\"description\":\"When several of these POKéMON gather, their electricity could build and cause lightning storms.\",\"habitat\":\"forest\",\"is_legendary\":false,\"name\":\"pikachu\"}"
+    );
+}
+
+#[tokio::test]
+async fn test_get_translated_pokemon() {
+    let f = warp::path("translated")
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and_then(get_translated_pokemon);
+
+    let res = warp::test::request().path("/translated/pikachu").reply(&f).await;
+
+    assert_eq!(res.status(), 200);
+    assert_eq!(res.body(), 
+        "{\"description\":\"At which hour several of these pokémon gather, their electricity couldst buildeth and cause lightning storms.\",\"habitat\":\"forest\",\"is_legendary\":false,\"name\":\"pikachu\"}"
+    );
 }
