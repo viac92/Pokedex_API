@@ -217,3 +217,36 @@ async fn test_get_english_description_with_flavor_text_entries() {
     let english_description = get_english_description(flavor_text_entries);
     assert_eq!(english_description, "Forms colonies in perpetually dark places. Uses ultrasonic waves to identify and approach targets.");
 }
+
+#[tokio::test]
+async fn test_get_translation_with_cave_pokemon() {
+    let translation = get_translation(
+        "Forms colonies in perpetually dark places. Uses ultrasonic waves to identify and approach targets.".to_string(),
+        "cave".to_string(),
+        false
+    ).await;
+
+    assert_eq!(translation, "Forms colonies in perpetually dark places.Ultrasonic waves to identify and approach targets, uses.");
+}
+
+#[tokio::test]
+async fn test_get_translation_with_legendary_pokemon() {
+    let translation = get_translation(
+        "It was created by a scientist after years of horrific gene splicing and DNA engineering experiments.".to_string(),
+        "rare".to_string(),
+        true
+    ).await;
+
+    assert_eq!(translation, "Created by a scientist after years of horrific gene splicing and dna engineering experiments, it was.");
+}
+
+#[tokio::test]
+async fn test_get_translation_with_common_pokemon() {
+    let translation = get_translation(
+        "When several of these POKéMON gather, their electricity could build and cause lightning storms.".to_string(),
+        "forest".to_string(),
+        false
+    ).await;
+
+    assert_eq!(translation, "At which hour several of these pokémon gather, their electricity couldst buildeth and cause lightning storms.");
+}
