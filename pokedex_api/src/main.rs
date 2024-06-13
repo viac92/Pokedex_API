@@ -33,27 +33,20 @@ async fn get_translated_pokemon(pokemon_name_to_search: String) -> Result<impl w
 
 async fn fetch_pokemon_from_api(pokemon_name_to_search: String) -> Result<Value, Error> {
     let rustemon_client = rustemon::client::RustemonClient::default();
-    let pokemon = rustemon::pokemon::pokemon::get_by_name(&pokemon_name_to_search, &rustemon_client).await;
-
-    let pokemon = pokemon.unwrap();
-    let pokemon_name = &pokemon.name;
+    let pokemon = rustemon::pokemon::pokemon::get_by_name(&pokemon_name_to_search, &rustemon_client).await.unwrap();
 
     let species_resource = pokemon.species;
-    let species = species_resource.follow(&rustemon_client).await;
+    let species = species_resource.follow(&rustemon_client).await.unwrap();
 
-    let species = species.unwrap();
     let pokemon_description = get_english_description(species.flavor_text_entries);
     let pokemon_description = pokemon_description.replace("\n", " ");
     let pokemon_description = pokemon_description.replace("\x0C", " ");
 
-    let pokemon_habitat = &species.habitat.unwrap().name;
-    let pokemon_is_legendary = species.is_legendary;
-
     let res = json!({
-        "name": pokemon_name,
+        "name": &pokemon.name,
         "description": pokemon_description,
-        "habitat": pokemon_habitat,
-        "is_legendary": pokemon_is_legendary
+        "habitat": &species.habitat.unwrap().name,
+        "is_legendary": species.is_legendary
     });
 
     Ok(res)
