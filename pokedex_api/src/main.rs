@@ -3,6 +3,8 @@ use rustemon::{model::resource::FlavorText, Follow};
 use serde_json::{json, Value};
 use warp::Filter;
 
+// Routes
+
 async fn get_pokemon(pokemon_name_to_search: String) -> Result<impl warp::Reply, warp::Rejection> {
     let pokemon = fetch_pokemon_from_api(pokemon_name_to_search).await.unwrap();
     Ok(warp::reply::json(&pokemon))
@@ -12,7 +14,7 @@ async fn get_translated_pokemon(pokemon_name_to_search: String) -> Result<impl w
     let pokemon = fetch_pokemon_from_api(pokemon_name_to_search).await.unwrap();
 
     let translated_pokemon_description = get_translation(
-        pokemon["description"].as_str().unwrap().to_string(), 
+        pokemon["description"].as_str().unwrap(), 
         pokemon["habitat"].to_string(), 
         pokemon["is_legendary"].as_bool().unwrap()
     ).await;
@@ -26,6 +28,8 @@ async fn get_translated_pokemon(pokemon_name_to_search: String) -> Result<impl w
 
     Ok(warp::reply::json(&res))
 }
+
+// Interaction with external APIs
 
 async fn fetch_pokemon_from_api(pokemon_name_to_search: String) -> Result<Value, Error> {
     let rustemon_client = rustemon::client::RustemonClient::default();
@@ -55,7 +59,7 @@ async fn fetch_pokemon_from_api(pokemon_name_to_search: String) -> Result<Value,
     Ok(res)
 }
 
-async fn fetch_yoda_translation_from_api(pokemon_description: String) -> Result<String, Error> {
+async fn fetch_yoda_translation_from_api(pokemon_description: &str) -> Result<String, Error> {
     let client = reqwest::Client::new();
 
     let res = client.post("https://api.funtranslations.com/translate/yoda")
@@ -72,7 +76,7 @@ async fn fetch_yoda_translation_from_api(pokemon_description: String) -> Result<
     Ok(translated_text)
 }
 
-async fn fetch_shakespeare_translation_from_api(pokemon_description: String) -> Result<String, Error> {
+async fn fetch_shakespeare_translation_from_api(pokemon_description: &str) -> Result<String, Error> {
     let client = reqwest::Client::new();
 
     let res = client.post("https://api.funtranslations.com/translate/shakespeare")
@@ -89,6 +93,8 @@ async fn fetch_shakespeare_translation_from_api(pokemon_description: String) -> 
     Ok(translated_text)
 }
 
+// Utility functions
+
 fn get_english_description(language_array: Vec<FlavorText>) -> String {
     let mut english_translation = String::new();
     for entry in language_array {
@@ -100,7 +106,7 @@ fn get_english_description(language_array: Vec<FlavorText>) -> String {
     english_translation
 }
 
-async fn get_translation(pokemon_description: String, pokemon_habitat: String, pokemon_is_legendary: bool) -> String {
+async fn get_translation(pokemon_description: &str, pokemon_habitat: String, pokemon_is_legendary: bool) -> String {
     if pokemon_habitat == "cave" || pokemon_is_legendary == true {
         fetch_yoda_translation_from_api(pokemon_description).await.unwrap()
     } else {
@@ -165,8 +171,7 @@ async fn test_fetch_pokemon_from_api_with_cave_pokemon() {
 #[tokio::test]
 async fn test_fetch_yoda_translation_from_api_with_mewtwo_description() {
     let translation = fetch_yoda_translation_from_api(
-        "It was created by a scientist after years of horrific gene splicing and DNA engineering experiments."
-        .to_string()).await.unwrap();
+        "It was created by a scientist after years of horrific gene splicing and DNA engineering experiments.").await.unwrap();
 
     // The translation lowercase the DNA to dna.
     assert_eq!(translation, "Created by a scientist after years of horrific gene splicing and dna engineering experiments, it was.");
@@ -175,8 +180,7 @@ async fn test_fetch_yoda_translation_from_api_with_mewtwo_description() {
 #[tokio::test]
 async fn test_fetch_yoda_translation_from_api_with_zubat_description() {
     let translation = fetch_yoda_translation_from_api(
-        "Forms colonies in perpetually dark places. Uses ultrasonic waves to identify and approach targets."
-        .to_string()).await.unwrap();
+        "Forms colonies in perpetually dark places. Uses ultrasonic waves to identify and approach targets.").await.unwrap();
 
     assert_eq!(translation, "Forms colonies in perpetually dark places.Ultrasonic waves to identify and approach targets, uses.");
 }
@@ -184,8 +188,7 @@ async fn test_fetch_yoda_translation_from_api_with_zubat_description() {
 #[tokio::test]
 async fn test_fetch_shakespeare_translation_from_api_with_pikachu_description() {
     let translation = fetch_shakespeare_translation_from_api(
-        "When several of these POKéMON gather, their electricity could build and cause lightning storms."
-        .to_string()).await.unwrap();
+        "When several of these POKéMON gather, their electricity could build and cause lightning storms.").await.unwrap();
 
     assert_eq!(translation, "At which hour several of these pokémon gather, their electricity couldst buildeth and cause lightning storms.");
 }
@@ -221,7 +224,7 @@ async fn test_get_english_description_with_flavor_text_entries() {
 #[tokio::test]
 async fn test_get_translation_with_cave_pokemon() {
     let translation = get_translation(
-        "Forms colonies in perpetually dark places. Uses ultrasonic waves to identify and approach targets.".to_string(),
+        "Forms colonies in perpetually dark places. Uses ultrasonic waves to identify and approach targets.",
         "cave".to_string(),
         false
     ).await;
@@ -232,7 +235,7 @@ async fn test_get_translation_with_cave_pokemon() {
 #[tokio::test]
 async fn test_get_translation_with_legendary_pokemon() {
     let translation = get_translation(
-        "It was created by a scientist after years of horrific gene splicing and DNA engineering experiments.".to_string(),
+        "It was created by a scientist after years of horrific gene splicing and DNA engineering experiments.",
         "rare".to_string(),
         true
     ).await;
@@ -243,7 +246,7 @@ async fn test_get_translation_with_legendary_pokemon() {
 #[tokio::test]
 async fn test_get_translation_with_common_pokemon() {
     let translation = get_translation(
-        "When several of these POKéMON gather, their electricity could build and cause lightning storms.".to_string(),
+        "When several of these POKéMON gather, their electricity could build and cause lightning storms.",
         "forest".to_string(),
         false
     ).await;
