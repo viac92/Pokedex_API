@@ -6,37 +6,54 @@ use warp::Filter;
 // Routes
 
 async fn get_pokemon(pokemon_name_to_search: String) -> Result<impl warp::Reply, warp::Rejection> {
-    let pokemon = fetch_pokemon_from_api(pokemon_name_to_search).await.unwrap();
-    Ok(warp::reply::json(&pokemon))
+    let pokemon = fetch_pokemon_from_api(pokemon_name_to_search).await;
+
+    // Suppose the only error is the pokemon not found, we should handle all possible errors in real world.
+    if pokemon.is_err() {
+        let reply = warp::reply::json(&json!({
+            "error": "Pokemon not found"
+        }));
+        return Ok(warp::reply::with_status(reply, warp::http::StatusCode::NOT_FOUND));
+    };
+
+    let reply = warp::reply::json(&pokemon.unwrap());
+    Ok(warp::reply::with_status(reply, warp::http::StatusCode::OK))
 }
 
 async fn get_translated_pokemon(pokemon_name_to_search: String) -> Result<impl warp::Reply, warp::Rejection> {
-    let pokemon = fetch_pokemon_from_api(pokemon_name_to_search).await.unwrap();
+    let pokemon = fetch_pokemon_from_api(pokemon_name_to_search).await;
 
+    // Suppose the only error is the pokemon not found, we should handle all possible errors in real world.
+    if pokemon.is_err() {
+        let reply = warp::reply::json(&json!({
+            "error": "Pokemon not found"
+        }));
+        return Ok(warp::reply::with_status(reply, warp::http::StatusCode::NOT_FOUND));
+    };
+
+    let mut pokemon = pokemon.unwrap();
     let translated_pokemon_description = get_translation(
         pokemon["description"].as_str().unwrap(), 
         pokemon["habitat"].to_string(), 
         pokemon["is_legendary"].as_bool().unwrap()
     ).await;
 
-    let res = json!({
-        "name": pokemon["name"],
-        "description": translated_pokemon_description,
-        "habitat": pokemon["habitat"],
-        "is_legendary": pokemon["is_legendary"]
-    });
+    if let Some(description) = pokemon.get_mut("description") {
+        *description = json!(translated_pokemon_description);
+    }
 
-    Ok(warp::reply::json(&res))
+    let reply = warp::reply::json(&pokemon);
+    Ok(warp::reply::with_status(reply, warp::http::StatusCode::OK))
 }
 
 // Interaction with external APIs
 
-async fn fetch_pokemon_from_api(pokemon_name_to_search: String) -> Result<Value, Error> {
+async fn fetch_pokemon_from_api(pokemon_name_to_search: String) -> Result<Value, rustemon::error::Error> {
     let rustemon_client = rustemon::client::RustemonClient::default();
-    let pokemon = rustemon::pokemon::pokemon::get_by_name(&pokemon_name_to_search, &rustemon_client).await.unwrap();
+    let pokemon = rustemon::pokemon::pokemon::get_by_name(&pokemon_name_to_search, &rustemon_client).await?;
 
     let species_resource = pokemon.species;
-    let species = species_resource.follow(&rustemon_client).await.unwrap();
+    let species = species_resource.follow(&rustemon_client).await.unwrap(); // Suppose to be safe to unwrap, in real world, we should handle the error
 
     let pokemon_description = get_english_description(species.flavor_text_entries);
     let pokemon_description = pokemon_description.replace("\n", " ");
@@ -45,7 +62,7 @@ async fn fetch_pokemon_from_api(pokemon_name_to_search: String) -> Result<Value,
     let res = json!({
         "name": &pokemon.name,
         "description": pokemon_description,
-        "habitat": &species.habitat.unwrap().name,
+        "habitat": &species.habitat.unwrap().name, // Suppose to be safe to unwrap, in real world, we should handle the error
         "is_legendary": species.is_legendary
     });
 
@@ -263,6 +280,19 @@ async fn test_get_pokemon() {
 }
 
 #[tokio::test]
+async fn test_get_pokemon_not_found() {
+    let f = warp::path("pokemon")
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and_then(get_pokemon);
+
+    let res = warp::test::request().path("/pokemon/NoPokemon").reply(&f).await;
+
+    assert_eq!(res.status(), 404);
+    assert_eq!(res.body(), "{\"error\":\"Pokemon not found\"}");
+}
+
+#[tokio::test]
 async fn test_get_translated_pokemon() {
     let f = warp::path("translated")
         .and(warp::path::param::<String>())
@@ -275,4 +305,17 @@ async fn test_get_translated_pokemon() {
     assert_eq!(res.body(), 
         "{\"description\":\"At which hour several of these pokémon gather, their electricity couldst buildeth and cause lightning storms.\",\"habitat\":\"forest\",\"is_legendary\":false,\"name\":\"pikachu\"}"
     );
+}
+
+#[tokio::test]
+async fn test_get_translated_pokemon_not_found() {
+    let f = warp::path("translated")
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and_then(get_translated_pokemon);
+
+    let res = warp::test::request().path("/translated/NoPokemon").reply(&f).await;
+
+    assert_eq!(res.status(), 404);
+    assert_eq!(res.body(), "{\"error\":\"Pokemon not found\"}");
 }
