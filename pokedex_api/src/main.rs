@@ -3,7 +3,9 @@ use rustemon::{model::resource::FlavorText, Follow};
 use serde_json::{json, Value};
 use warp::Filter;
 
-// Routes
+////////////
+// Routes //
+////////////
 
 async fn get_pokemon(pokemon_name_to_search: String) -> Result<impl warp::Reply, warp::Rejection> {
     let pokemon = fetch_pokemon_from_api(pokemon_name_to_search).await;
@@ -37,6 +39,17 @@ async fn get_translated_pokemon(pokemon_name_to_search: String) -> Result<impl w
         pokemon["habitat"].to_string(), 
         pokemon["is_legendary"].as_bool().unwrap()
     ).await;
+    
+    // Suppose the only error is the rate limit reached, return a 429 status code.
+    // In real world, we should handle all possible errors.
+    if translated_pokemon_description.is_err() {
+        let reply = warp::reply::json(&json!({
+            "error": "Translation failed"
+        }));
+        return Ok(warp::reply::with_status(reply, warp::http::StatusCode::TOO_MANY_REQUESTS));
+    };
+
+    let translated_pokemon_description = translated_pokemon_description.unwrap();
 
     if let Some(description) = pokemon.get_mut("description") {
         *description = json!(translated_pokemon_description);
@@ -46,7 +59,9 @@ async fn get_translated_pokemon(pokemon_name_to_search: String) -> Result<impl w
     Ok(warp::reply::with_status(reply, warp::http::StatusCode::OK))
 }
 
-// Interaction with external APIs
+////////////////////////////////////
+// Interaction with external APIs //
+////////////////////////////////////
 
 async fn fetch_pokemon_from_api(pokemon_name_to_search: String) -> Result<Value, rustemon::error::Error> {
     let rustemon_client = rustemon::client::RustemonClient::default();
@@ -78,6 +93,13 @@ async fn fetch_yoda_translation_from_api(pokemon_description: &str) -> Result<St
         .await?;
 
     println!("{:?}", res);
+    
+    // The https://api.funtranslations.com/translate/yoda API has a rate limit of 10 requests per hour and 60 requests per day. 
+    // If the rate limit is reached, the API will return a 429 status code.
+    // Return an error if the rate limit is reached.
+    if res.status() == 429 {
+        return Err(Error::without_url(res.error_for_status().err().unwrap()));
+    }
 
     let data: serde_json::Value = res.json().await.unwrap();
     let translated_text = data["contents"]["translated"].as_str().unwrap().to_string();
@@ -93,8 +115,12 @@ async fn fetch_shakespeare_translation_from_api(pokemon_description: &str) -> Re
         .body(format!("{{\"text\": \"{}\"}}", pokemon_description))
         .send()
         .await?;
-
+    
     println!("{:?}", res);
+
+    if res.status() == 429 {
+        return Err(Error::without_url(res.error_for_status().err().unwrap()));
+    }
 
     let data: serde_json::Value = res.json().await.unwrap();
     let translated_text = data["contents"]["translated"].as_str().unwrap().to_string();
@@ -103,7 +129,9 @@ async fn fetch_shakespeare_translation_from_api(pokemon_description: &str) -> Re
     Ok(translated_text)
 }
 
-// Utility functions
+///////////////////////
+// Utility functions //
+///////////////////////
 
 fn get_english_description(language_array: Vec<FlavorText>) -> String {
     let mut english_translation = String::new();
@@ -116,11 +144,11 @@ fn get_english_description(language_array: Vec<FlavorText>) -> String {
     english_translation
 }
 
-async fn get_translation(pokemon_description: &str, pokemon_habitat: String, pokemon_is_legendary: bool) -> String {
+async fn get_translation(pokemon_description: &str, pokemon_habitat: String, pokemon_is_legendary: bool) -> Result<String, Error> {
     if pokemon_habitat == "cave" || pokemon_is_legendary == true {
-        fetch_yoda_translation_from_api(pokemon_description).await.unwrap()
+        fetch_yoda_translation_from_api(pokemon_description).await
     } else {
-        fetch_shakespeare_translation_from_api(pokemon_description).await.unwrap()
+        fetch_shakespeare_translation_from_api(pokemon_description).await
     }
 }
 
@@ -149,7 +177,9 @@ async fn main() {
         .await;
 }
 
-// Tests
+///////////
+// Tests //
+///////////
 
 #[tokio::test]
 async fn test_fetch_pokemon_from_api_with_common_pokemon() {
@@ -237,7 +267,7 @@ async fn test_get_translation_with_cave_pokemon() {
         "Forms colonies in perpetually dark places. Uses ultrasonic waves to identify and approach targets.",
         "cave".to_string(),
         false
-    ).await;
+    ).await.unwrap();
 
     assert_eq!(translation, "Forms colonies in perpetually dark places.Ultrasonic waves to identify and approach targets, uses.");
 }
@@ -248,7 +278,7 @@ async fn test_get_translation_with_legendary_pokemon() {
         "It was created by a scientist after years of horrific gene splicing and DNA engineering experiments.",
         "rare".to_string(),
         true
-    ).await;
+    ).await.unwrap();
 
     assert_eq!(translation, "Created by a scientist after years of horrific gene splicing and dna engineering experiments, it was.");
 }
@@ -259,7 +289,7 @@ async fn test_get_translation_with_common_pokemon() {
         "When several of these POKéMON gather, their electricity could build and cause lightning storms.",
         "forest".to_string(),
         false
-    ).await;
+    ).await.unwrap();
 
     assert_eq!(translation, "At which hour several of these pokémon gather, their electricity couldst buildeth and cause lightning storms.");
 }
