@@ -76,7 +76,10 @@ The Vue.js application serves as a simple interface to interact with and test th
       ```sh
       cargo test
       ```
-
+3. **Use Postman or curl**
+    - Call the two end points:
+    1. `http://localhost:3030/pokemon/{pokemon_name}`
+    2. `http://loaclhost:3030/translated/{pokemon_name}`
 
 ## Possible Improvements
 
