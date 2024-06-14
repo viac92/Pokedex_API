@@ -9,6 +9,15 @@ use warp::Filter;
 // Routes //
 ////////////
 
+/// Get the data for the pokemon/pokemon_name endpoint.
+/// 
+/// The endpoint will return the pokemon data as a JSON object.
+/// - name: String
+/// - description: String
+/// - habitat: String
+/// - is_legendary: bool
+/// 
+/// The endpoint will cache the pokemon data.
 async fn get_pokemon(pokemon_name_to_search: String, cache: Arc<Mutex<HashMap<String, Value>>>) -> Result<impl warp::Reply, warp::Rejection> { 
     {
         let cache_guard = cache.lock().unwrap();
@@ -36,6 +45,15 @@ async fn get_pokemon(pokemon_name_to_search: String, cache: Arc<Mutex<HashMap<St
     Ok(warp::reply::with_status(reply, warp::http::StatusCode::OK))
 }
 
+/// Get the data for the translated/pokemon_name endpoint.
+/// 
+/// The endpoint will return the pokemon data with the description translated as a JSON object.
+/// - name: String
+/// - description: String
+/// - habitat: String
+/// - is_legendary: bool
+/// 
+/// The endpoint will cache the pokemon data.
 async fn get_translated_pokemon(pokemon_name_to_search: String, cache_pokemon: Arc<Mutex<HashMap<String, Value>>>, cache_translation: Arc<Mutex<HashMap<String, String>>>) -> Result<impl warp::Reply, warp::Rejection> {
     // Get the pokemon data from the cache or fetch from the API
     let pokemon_data = get_pokemon_from_cache(pokemon_name_to_search.clone(), cache_pokemon.clone());
@@ -103,6 +121,9 @@ async fn get_translated_pokemon(pokemon_name_to_search: String, cache_pokemon: A
 // Interaction with external APIs //
 ////////////////////////////////////
 
+/// Fetch the pokemon data from the PokeAPI.
+/// 
+/// In real world application, I should handle all possible errors, here I just return an error if the pokemon is not found.
 async fn fetch_pokemon_from_api(pokemon_name_to_search: String) -> Result<Value, rustemon::error::Error> {
     let rustemon_client = rustemon::client::RustemonClient::default();
     let pokemon = rustemon::pokemon::pokemon::get_by_name(&pokemon_name_to_search, &rustemon_client).await?;
@@ -124,6 +145,15 @@ async fn fetch_pokemon_from_api(pokemon_name_to_search: String) -> Result<Value,
     Ok(res)
 }
 
+/// Fetch the Yoda translation from the Fun Translations API.
+/// 
+/// The Yoda API has a rate limit of 10 requests per hour and 60 requests per day.
+/// Be careful with the rate limit!
+/// 
+/// The API will return a 429 status code if the rate limit is reached.
+/// 
+/// In real world application, I should handle all possible errors, here I just return an error if the rate limit is reached.
+/// Also I will consider using API keys to increase the rate limit.
 async fn fetch_yoda_translation_from_api(pokemon_description: &str) -> Result<String, Error> {
     let client = reqwest::Client::new();
 
@@ -148,6 +178,15 @@ async fn fetch_yoda_translation_from_api(pokemon_description: &str) -> Result<St
     Ok(translated_text)
 }
 
+/// Fetch the translation from the Shakespeare API.
+/// 
+/// The Shakespeare API has a rate limit of 10 requests per hour and 60 requests per day.
+/// Be careful with the rate limit!
+/// 
+/// The API will return a 429 status code if the rate limit is reached.
+/// 
+/// In real world application, I should handle all possible errors, here I just return an error if the rate limit is reached.
+/// Also I will consider using API keys to increase the rate limit.
 async fn fetch_shakespeare_translation_from_api(pokemon_description: &str) -> Result<String, Error> {
     let client = reqwest::Client::new();
 
@@ -173,6 +212,9 @@ async fn fetch_shakespeare_translation_from_api(pokemon_description: &str) -> Re
 // Utility functions //
 ///////////////////////
 
+/// Get the first english description from the flavor text entries.
+/// 
+/// Some pokemon have multiple descriptions in different languages, this function will return the first english description.
 fn get_english_description(language_array: Vec<FlavorText>) -> String {
     let mut english_translation = String::new();
     for entry in language_array {
@@ -184,6 +226,10 @@ fn get_english_description(language_array: Vec<FlavorText>) -> String {
     english_translation
 }
 
+/// Get the correct translation based on the pokemon habitat and if the pokemon is legendary.
+/// 
+/// if the pokemon habitat is cave or the pokemon is legendary, the translation will be in Yoda.
+/// Otherwise, the translation will be in Shakespeare.
 async fn get_translation(pokemon_description: &str, pokemon_habitat: String, pokemon_is_legendary: bool) -> Result<String, Error> {
     if pokemon_habitat == "cave" || pokemon_is_legendary == true {
         fetch_yoda_translation_from_api(pokemon_description).await
@@ -192,6 +238,10 @@ async fn get_translation(pokemon_description: &str, pokemon_habitat: String, pok
     }
 }
 
+/// Cache the pokemon in a HashMap with the pokemon name as the key.
+/// 
+/// In real world application I should use a cache library like Redis.
+/// Actually I cache the pokemon for unlimited time, in real world I should set a TTL.
 fn get_pokemon_from_cache(pokemon_name: String, cache: Arc<Mutex<HashMap<String, Value>>>) -> Option<Value> {
     let cache_guard = cache.lock().unwrap();
     if cache_guard.contains_key(&pokemon_name) {
@@ -200,6 +250,10 @@ fn get_pokemon_from_cache(pokemon_name: String, cache: Arc<Mutex<HashMap<String,
     None
 }
 
+/// Cache the translation in a HashMap with the pokemon name as the key.
+/// 
+/// In real world application I should use a cache library like Redis.
+/// Actually I cache the translation for unlimited time, in real world I should set a TTL.
 fn get_translation_from_cache(pokemon_name: String, cache: Arc<Mutex<HashMap<String, String>>>) -> Option<String> {
     let cache_guard = cache.lock().unwrap();
     if cache_guard.contains_key(&pokemon_name) {
