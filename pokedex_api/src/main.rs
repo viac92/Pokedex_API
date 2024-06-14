@@ -37,18 +37,11 @@ async fn get_pokemon(pokemon_name_to_search: String, cache: Arc<Mutex<HashMap<St
 }
 
 async fn get_translated_pokemon(pokemon_name_to_search: String, cache_pokemon: Arc<Mutex<HashMap<String, Value>>>, cache_translation: Arc<Mutex<HashMap<String, String>>>) -> Result<impl warp::Reply, warp::Rejection> {
-    let mut pokemon_data: Value = Value::Null;
-    
-    {
-        let cache_guard = cache_pokemon.lock().unwrap();
-        if cache_guard.contains_key(&pokemon_name_to_search) {
-            pokemon_data = cache_guard[&pokemon_name_to_search].clone();
-        }
-    } // MutexGuard is dropped here
-
+    // Get the pokemon data from the cache or fetch from the API
+    let pokemon_data = get_pokemon_from_cache(pokemon_name_to_search.clone(), cache_pokemon.clone());
     let mut pokemon;
-    if pokemon_data != Value::Null {
-        pokemon = pokemon_data;
+    if pokemon_data.is_some() {
+        pokemon = pokemon_data.unwrap();
     } else {
         let pokemon_result = fetch_pokemon_from_api(pokemon_name_to_search.clone()).await;
 
@@ -65,16 +58,9 @@ async fn get_translated_pokemon(pokemon_name_to_search: String, cache_pokemon: A
         pokemon = pokemon_result.unwrap();        
     }
 
-    let translation_in_cache: Option<String>;
-    {
-        let cache_guard = cache_translation.lock().unwrap();
-        if cache_guard.contains_key(&pokemon_name_to_search) {
-            translation_in_cache = Some(cache_guard[&pokemon_name_to_search].clone());
-        } else {
-            translation_in_cache = None;
-        }
-    } // MutexGuard is dropped here
+    let translation_in_cache: Option<String> = get_translation_from_cache(pokemon_name_to_search.clone(), cache_translation.clone());
 
+    // Get the translation from the cache or fetch from the API
     if translation_in_cache.is_some() {
         let translated_pokemon_description = translation_in_cache.unwrap();
 
@@ -204,6 +190,22 @@ async fn get_translation(pokemon_description: &str, pokemon_habitat: String, pok
     } else {
         fetch_shakespeare_translation_from_api(pokemon_description).await
     }
+}
+
+fn get_pokemon_from_cache(pokemon_name: String, cache: Arc<Mutex<HashMap<String, Value>>>) -> Option<Value> {
+    let cache_guard = cache.lock().unwrap();
+    if cache_guard.contains_key(&pokemon_name) {
+        return Some(cache_guard[&pokemon_name].clone());
+    }
+    None
+}
+
+fn get_translation_from_cache(pokemon_name: String, cache: Arc<Mutex<HashMap<String, String>>>) -> Option<String> {
+    let cache_guard = cache.lock().unwrap();
+    if cache_guard.contains_key(&pokemon_name) {
+        return Some(cache_guard[&pokemon_name].clone());
+    }
+    None
 }
 
 #[tokio::main]
@@ -356,58 +358,97 @@ async fn test_get_translation_with_common_pokemon() {
     assert_eq!(translation, "At which hour several of these pokémon gather, their electricity couldst buildeth and cause lightning storms.");
 }
 
-// #[tokio::test]
-// async fn test_get_pokemon() {
-//     let f = warp::path("pokemon")
-//         .and(warp::path::param::<String>())
-//         .and(warp::path::end())
-//         .and_then(get_pokemon);
+#[tokio::test]
+async fn test_get_pokemon_from_cache() {
+    let pokemon_cache: Arc<Mutex<HashMap<String, Value>>> = Arc::new(Mutex::new(HashMap::new()));
 
-//     let res = warp::test::request().path("/pokemon/pikachu").reply(&f).await;
+    let pokemon = fetch_pokemon_from_api("pikachu".to_string()).await.unwrap();
+    pokemon_cache.lock().unwrap().insert("pikachu".to_string(), pokemon.clone());
 
-//     assert_eq!(res.status(), 200);
-//     assert_eq!(res.body(), 
-//         "{\"description\":\"When several of these POKéMON gather, their electricity could build and cause lightning storms.\",\"habitat\":\"forest\",\"is_legendary\":false,\"name\":\"pikachu\"}"
-//     );
-// }
+    let pokemon_from_cache = get_pokemon_from_cache("pikachu".to_string(), pokemon_cache.clone());
+    assert_eq!(pokemon_from_cache.unwrap(), pokemon);
+}
 
-// #[tokio::test]
-// async fn test_get_pokemon_not_found() {
-//     let f = warp::path("pokemon")
-//         .and(warp::path::param::<String>())
-//         .and(warp::path::end())
-//         .and_then(get_pokemon);
+#[tokio::test]
+async fn test_get_translation_from_cache() {
+    let translation_cache: Arc<Mutex<HashMap<String, String>>> = Arc::new(Mutex::new(HashMap::new()));
 
-//     let res = warp::test::request().path("/pokemon/NoPokemon").reply(&f).await;
+    let translation = fetch_shakespeare_translation_from_api(
+        "When several of these POKéMON gather, their electricity could build and cause lightning storms.").await.unwrap();
+    translation_cache.lock().unwrap().insert("pikachu".to_string(), translation.clone());
 
-//     assert_eq!(res.status(), 404);
-//     assert_eq!(res.body(), "{\"error\":\"Pokemon not found\"}");
-// }
+    let translation_from_cache = get_translation_from_cache("pikachu".to_string(), translation_cache.clone());
+    assert_eq!(translation_from_cache.unwrap(), translation);
+}
 
-// #[tokio::test]
-// async fn test_get_translated_pokemon() {
-//     let f = warp::path("translated")
-//         .and(warp::path::param::<String>())
-//         .and(warp::path::end())
-//         .and_then(get_translated_pokemon);
+#[tokio::test]
+async fn test_get_pokemon() {
+    let pokemon_cache: Arc<Mutex<HashMap<String, Value>>> = Arc::new(Mutex::new(HashMap::new()));
 
-//     let res = warp::test::request().path("/translated/pikachu").reply(&f).await;
+    let f = warp::path("pokemon")
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(warp::any().map(move || pokemon_cache.clone()))
+        .and_then(get_pokemon);
 
-//     assert_eq!(res.status(), 200);
-//     assert_eq!(res.body(), 
-//         "{\"description\":\"At which hour several of these pokémon gather, their electricity couldst buildeth and cause lightning storms.\",\"habitat\":\"forest\",\"is_legendary\":false,\"name\":\"pikachu\"}"
-//     );
-// }
+    let res = warp::test::request().path("/pokemon/pikachu").reply(&f).await;
 
-// #[tokio::test]
-// async fn test_get_translated_pokemon_not_found() {
-//     let f = warp::path("translated")
-//         .and(warp::path::param::<String>())
-//         .and(warp::path::end())
-//         .and_then(get_translated_pokemon);
+    assert_eq!(res.status(), 200);
+    assert_eq!(res.body(), 
+        "{\"description\":\"When several of these POKéMON gather, their electricity could build and cause lightning storms.\",\"habitat\":\"forest\",\"is_legendary\":false,\"name\":\"pikachu\"}"
+    );
+}
 
-//     let res = warp::test::request().path("/translated/NoPokemon").reply(&f).await;
+#[tokio::test]
+async fn test_get_pokemon_not_found() {
+    let pokemon_cache: Arc<Mutex<HashMap<String, Value>>> = Arc::new(Mutex::new(HashMap::new()));
 
-//     assert_eq!(res.status(), 404);
-//     assert_eq!(res.body(), "{\"error\":\"Pokemon not found\"}");
-// }
+    let f = warp::path("pokemon")
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(warp::any().map(move || pokemon_cache.clone()))
+        .and_then(get_pokemon);
+
+    let res = warp::test::request().path("/pokemon/NoPokemon").reply(&f).await;
+
+    assert_eq!(res.status(), 404);
+    assert_eq!(res.body(), "{\"error\":\"Pokemon not found\"}");
+}
+
+#[tokio::test]
+async fn test_get_translated_pokemon() {
+    let pokemon_cache: Arc<Mutex<HashMap<String, Value>>> = Arc::new(Mutex::new(HashMap::new()));
+    let translation_cache: Arc<Mutex<HashMap<String, String>>> = Arc::new(Mutex::new(HashMap::new()));
+
+    let f = warp::path("translated")
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(warp::any().map(move || pokemon_cache.clone()))
+        .and(warp::any().map(move || translation_cache.clone()))
+        .and_then(get_translated_pokemon);
+
+    let res = warp::test::request().path("/translated/pikachu").reply(&f).await;
+
+    assert_eq!(res.status(), 200);
+    assert_eq!(res.body(), 
+        "{\"description\":\"At which hour several of these pokémon gather, their electricity couldst buildeth and cause lightning storms.\",\"habitat\":\"forest\",\"is_legendary\":false,\"name\":\"pikachu\"}"
+    );
+}
+
+#[tokio::test]
+async fn test_get_translated_pokemon_not_found() {
+    let pokemon_cache: Arc<Mutex<HashMap<String, Value>>> = Arc::new(Mutex::new(HashMap::new()));
+    let translation_cache: Arc<Mutex<HashMap<String, String>>> = Arc::new(Mutex::new(HashMap::new()));
+
+    let f = warp::path("translated")
+        .and(warp::path::param::<String>())
+        .and(warp::path::end())
+        .and(warp::any().map(move || pokemon_cache.clone()))
+        .and(warp::any().map(move || translation_cache.clone()))
+        .and_then(get_translated_pokemon);
+
+    let res = warp::test::request().path("/translated/NoPokemon").reply(&f).await;
+
+    assert_eq!(res.status(), 404);
+    assert_eq!(res.body(), "{\"error\":\"Pokemon not found\"}");
+}
