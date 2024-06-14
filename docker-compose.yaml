@@ -7,13 +7,15 @@ services:
     volumes:
       - ./pokedex_api:/code/pokedex_api
     tty: true
+    command: ["cargo", "run"] 
   
   pokedex-web:
-    image: node:22-alpine3.19
+    build: ./pokedex_web_app
     container_name: pokedex_web_app
     ports:
       - 5173:5173
     volumes:
       - ./pokedex_web_app:/code/pokedex_web_app
     tty: true
+    command: ["npm", "run", "dev"]
     
