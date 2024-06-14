@@ -284,9 +284,14 @@ async fn main() {
         .and(warp::any().map(move || translation_cache.clone()))
         .and_then(get_translated_pokemon);
 
+    let cors = warp::cors()
+        .allow_any_origin()
+        .allow_methods(vec!["GET"]);
+
     let routes = warp::get()
         .and(pokemon
         .or(translated_pokemon)
+        .with(cors)
     );
 
     warp::serve(routes)
