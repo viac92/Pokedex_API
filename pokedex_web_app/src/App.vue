@@ -15,6 +15,7 @@ const fetchPokemon = async (pokemon_name) => {
     pokemon.value = response.data;
   } catch(error) {
     console.error(error);
+    pokemon.value = error.response.data.error;
   }
 }
 
@@ -25,6 +26,7 @@ const fetchTranslatedPokemon = async (translated_pokemon_name) => {
     translated_pokemon.value = response.data;
   } catch(error) {
     console.error(error);
+    translated_pokemon.value  = error.response.data.error;
   }
 }
 
@@ -33,20 +35,26 @@ const fetchTranslatedPokemon = async (translated_pokemon_name) => {
 <template>
   <main>
     <h1>Pokedex</h1>
-    <!-- Add text box to choose a pokemon store it in variable-->
-
     <p>Get Your Pokemon!</p>
     <input type="text" v-model="pokemon_name" />
-    <button @click="fetchPokemon(pokemon_name)">Get Pokemon Information</button>
-    {{ pokemon }}
+    <button class="button-margin" @click="fetchPokemon(pokemon_name)" :disabled="pokemon_name === ''">Get Pokemon Information</button>
+    <p>name: {{ pokemon?.name }}</p>
+    <p>description: {{ pokemon?.description }}</p>
+    <p>habitat: {{ pokemon?.habitat }}</p>
+    <p>is_legendary: {{ pokemon?.is_legendary }}</p>
 
     <p>Get your translated Pokemon!</p>
     <input type="text" v-model="translated_pokemon_name" />
-    <button @click="fetchTranslatedPokemon(translated_pokemon_name)">Get Translated Pokemon Information</button>
-    {{ translated_pokemon }}
+    <button class="button-margin" @click="fetchTranslatedPokemon(translated_pokemon_name)" :disabled="translated_pokemon_name === ''">Get Translated Pokemon Information</button>
+    <p>name: {{ translated_pokemon?.name }}</p>
+    <p>translated description: {{ translated_pokemon?.description }}</p>
+    <p>habitat: {{ translated_pokemon?.habitat }}</p>
+    <p>is_legendary: {{ translated_pokemon?.is_legendary }}</p>
   </main>
 </template>
 
 <style scoped>
-
+.button-margin {
+  margin-left: 10px;
+}
 </style>
