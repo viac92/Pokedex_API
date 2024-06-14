@@ -6,7 +6,6 @@ services:
       - 3030:3030
     volumes:
       - ./pokedex_api:/code/pokedex_api
-    tty: true
     command: ["cargo", "run"] 
   
   pokedex-web:
@@ -16,6 +15,5 @@ services:
       - 5173:5173
     volumes:
       - ./pokedex_web_app:/code/pokedex_web_app
-    tty: true
-    command: ["npm", "run", "dev"]
+    command: /bin/sh -c "npm install && npm run dev"
     
