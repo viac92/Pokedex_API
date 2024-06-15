@@ -90,3 +90,6 @@ For this project, I aimed to keep things straightforward and avoid unnecessary c
 - Code Organization: I would use modules to better separate and organize the code, enhancing maintainability and readability.
 - Caching: Currently, I implemented a basic cache to avoid calling the external API on every request. This cache does not have an expiration mechanism, which is acceptable for testing. In a real world scenario, I would use a dedicated caching library to manage cache expiration and improve performance.
 - Rate Limiting: The current implementation lacks rate limiting. In a real world application, I would implement rate limiting to prevent denial-of-service (DoS) and distributed denial-of-service (DDoS) attacks.
+- Logger: Implement logger for debugging and metrics.
+- Testing: add integration and end-to-end tests
+- Improve error handling 
