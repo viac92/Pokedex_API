@@ -83,8 +83,6 @@ The Vue.js application serves as a simple interface to interact with and test th
 
 ## Possible Improvements
 
-I chose to use Rust for this project despite my limited experience with the language. Previously, I contributed to an [open-source project](https://github.com/Datagen-Project/Datagen-Substrate-Grant) using Rust for several months. Although I have much to learn, I am excited about the capabilities and potential of Rust.
-
 For this project, I aimed to keep things straightforward and avoid unnecessary complexity. Here are some improvements I would make if this were a real world application:
 
 - Code Organization: I would use modules to better separate and organize the code, enhancing maintainability and readability.
@@ -92,4 +90,9 @@ For this project, I aimed to keep things straightforward and avoid unnecessary c
 - Rate Limiting: The current implementation lacks rate limiting. In a real world application, I would implement rate limiting to prevent denial-of-service (DoS) and distributed denial-of-service (DDoS) attacks.
 - Logger: Implement logger for debugging and metrics.
 - Testing: add integration and end-to-end tests
-- Improve error handling 
+
+## Final Toughts 
+
+I chose to use Rust for this project despite my limited experience with the language. Previously, I contributed to an [open-source project](https://github.com/Datagen-Project/Datagen-Substrate-Grant) using Rust for several months. Although I have much to learn, I am excited about the capabilities and potential of Rust.
+
+This is also my first time using Warp. I want to challenge myself and take this opportunity to learn something new!
